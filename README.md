@@ -26,6 +26,14 @@ The message type can be changed to `geometry_msgs/msg/TwistStamped` by the `publ
 - `cmd_vel (geometry_msgs/msg/Twist or geometry_msgs/msg/TwistStamped)`
   - Command velocity messages arising from Joystick commands.
 
+- `cmd_gimbal_joint (sensor_msgs/msg/JointState)`
+  - Command state messages of gimbal joint position arising from Joystick commands.
+
+### Client
+
+- `nav_to_pose_client_ (nav2_msgs/action/NavigateToPose)`
+  - Action client for sending navigation goals to the `navigate_to_pose` action server. This client is used to send the robot to a specified pose in the map.
+
 ### Parameters
 
 - `require_enable_button (bool, default: true)`
@@ -41,19 +49,19 @@ The message type can be changed to `geometry_msgs/msg/TwistStamped` by the `publ
   - Joystick axis to use for linear movement control.
   - `axis_chassis.x (int, default: 5)`
   - `axis_chassis.y (int, default: -1)`
-  - `axis_chassis.z (int, default: -1)`
+  - `axis_chassis.yaw (int, default: -1)`
 
 - `scale_chassis.<axis>`
   - Scale to apply to joystick linear axis for regular-speed movement.
   - `scale_chassis.x (double, default: 0.5)`
   - `scale_chassis.y (double, default: 0.0)`
-  - `scale_chassis.z (double, default: 0.0)`
+  - `scale_chassis.yaw (double, default: 0.0)`
 
 - `scale_chassis_turbo.<axis>`
   - Scale to apply to joystick linear axis for high-speed movement.
   - `scale_chassis_turbo.x (double, default: 1.0)`
   - `scale_chassis_turbo.y (double, default: 0.0)`
-  - `scale_chassis_turbo.z (double, default: 0.0)`
+  - `scale_chassis_turbo.yaw (double, default: 0.0)`
 
 - `axis_gimbal.<axis>`
   - Joystick axis to use for angular movement control.
@@ -95,7 +103,7 @@ cd ~/ros_ws/src
 ```
 
 ```zsh
-git clone --recursive https://github.com/SMBU-PolarBear-Robotics-Team/pb2025_sentry_nav.git
+git clone https://github.com/SMBU-PolarBear-Robotics-Team/pb_teleop_twist_joy.git
 ```
 
 ```zsh
@@ -123,7 +131,7 @@ ros2 launch pb_teleop_twist_joy pb_teleop_twist_joy_launch.py joy_config:='xbox'
 
 ### Arguments
 
-- `joy_config (string, default: 'ps3')`
+- `joy_config (string, default: 'xbox')`
   - Config file to use
 - `joy_dev (string, default: '0')`
   - Joystick device to use

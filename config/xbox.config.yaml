@@ -1,5 +1,6 @@
 pb_teleop_twist_joy_node:
   ros__parameters:
+    use_sim_time: false
     robot_base_frame: gimbal_yaw
     control_mode: manual_control  # Option: auto_control, manual_control
 

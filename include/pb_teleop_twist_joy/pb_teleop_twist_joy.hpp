@@ -50,6 +50,9 @@ private:
   void sendGoalPoseAction(
     const sensor_msgs::msg::Joy::SharedPtr joy_msg, const std::string & which_map);
   void sendZeroCommand();
+  double getVal(
+    const sensor_msgs::msg::Joy::SharedPtr joy_msg, const std::map<std::string, int64_t> & axis_map,
+    const std::map<std::string, double> & scale_map, const std::string & fieldname);
 
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
@@ -72,7 +75,8 @@ private:
   std::map<std::string, int64_t> axis_gimbal_map_;
   std::map<std::string, std::map<std::string, double>> scale_gimbal_map_;
 
-  bool sent_disable_msg_{false};
+  bool sent_disable_msg_;
+  double dt_;
 };
 
 }  // namespace pb_teleop_twist_joy

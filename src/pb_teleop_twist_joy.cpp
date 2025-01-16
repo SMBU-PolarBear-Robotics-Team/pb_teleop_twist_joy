@@ -26,8 +26,26 @@ TeleopTwistJoyNode::TeleopTwistJoyNode(const rclcpp::NodeOptions & options)
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-  publish_stamped_twist_ = this->declare_parameter("publish_stamped_twist", false);
-  robot_base_frame_ = this->declare_parameter("robot_base_frame", "base_link");
+  this->declare_parameter<bool>("publish_stamped_twist", false);
+  this->declare_parameter<std::string>("robot_base_frame", "base_link");
+  this->declare_parameter<bool>("require_enable_button", true);
+  this->declare_parameter<int64_t>("enable_button", 5);
+  this->declare_parameter<int64_t>("enable_turbo_button", -1);
+  this->declare_parameter<bool>("inverted_reverse", false);
+  this->declare_parameter<std::string>("control_mode", "manual_control");
+
+  this->get_parameter("publish_stamped_twist", publish_stamped_twist_);
+  this->get_parameter("robot_base_frame", robot_base_frame_);
+  this->get_parameter("require_enable_button", require_enable_button_);
+  this->get_parameter("enable_button", enable_button_);
+  this->get_parameter("enable_turbo_button", enable_turbo_button_);
+  this->get_parameter("inverted_reverse", inverted_reverse_);
+  this->get_parameter("control_mode", control_mode_);
+
+  if (control_mode_ == "auto_control") {
+    nav_to_pose_client_ =
+      rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(this, "navigate_to_pose");
+  }
 
   if (publish_stamped_twist_) {
     cmd_vel_stamped_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("cmd_vel", 10);
@@ -39,15 +57,6 @@ TeleopTwistJoyNode::TeleopTwistJoyNode(const rclcpp::NodeOptions & options)
 
   joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
     "joy", 10, std::bind(&TeleopTwistJoyNode::joyCallback, this, std::placeholders::_1));
-
-  nav_to_pose_client_ =
-    rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(this, "navigate_to_pose");
-
-  require_enable_button_ = this->declare_parameter("require_enable_button", true);
-  enable_button_ = this->declare_parameter("enable_button", 5);
-  enable_turbo_button_ = this->declare_parameter("enable_turbo_button", -1);
-  inverted_reverse_ = this->declare_parameter("inverted_reverse", false);
-  control_mode_ = this->declare_parameter("control_mode", "manual_control");
 
   // Initialize axis and scale maps
   std::map<std::string, int64_t> default_chassis_map{
@@ -69,7 +78,7 @@ TeleopTwistJoyNode::TeleopTwistJoyNode(const rclcpp::NodeOptions & options)
   std::map<std::string, double> default_scale_chassis_normal_map{
     {"x", 0.5},
     {"y", 0.0},
-    {"z", 0.0},
+    {"yaw", 0.0},
   };
   this->declare_parameters("scale_chassis", default_scale_chassis_normal_map);
   this->get_parameters("scale_chassis", scale_chassis_map_["normal"]);
@@ -77,7 +86,7 @@ TeleopTwistJoyNode::TeleopTwistJoyNode(const rclcpp::NodeOptions & options)
   std::map<std::string, double> default_scale_chassis_turbo_map{
     {"x", 1.0},
     {"y", 0.0},
-    {"z", 0.0},
+    {"yaw", 0.0},
   };
   this->declare_parameters("scale_chassis_turbo", default_scale_chassis_turbo_map);
   this->get_parameters("scale_chassis_turbo", scale_chassis_map_["turbo"]);
@@ -131,22 +140,30 @@ TeleopTwistJoyNode::TeleopTwistJoyNode(const rclcpp::NodeOptions & options)
   }
 }
 
-double getVal(
+double TeleopTwistJoyNode::getVal(
   const sensor_msgs::msg::Joy::SharedPtr joy_msg, const std::map<std::string, int64_t> & axis_map,
   const std::map<std::string, double> & scale_map, const std::string & fieldname)
 {
+  auto axis_it = axis_map.find(fieldname);
+  auto scale_it = scale_map.find(fieldname);
+
   if (
-    axis_map.find(fieldname) == axis_map.end() || axis_map.at(fieldname) == -1L ||
-    scale_map.find(fieldname) == scale_map.end() ||
-    static_cast<int>(joy_msg->axes.size()) <= axis_map.at(fieldname)) {
+    axis_it == axis_map.end() || axis_it->second == -1L || scale_it == scale_map.end() ||
+    static_cast<int>(joy_msg->axes.size()) <= axis_it->second) {
     return 0.0;
   }
 
-  return joy_msg->axes[axis_map.at(fieldname)] * scale_map.at(fieldname);
+  return joy_msg->axes[axis_it->second] * scale_it->second;
 }
 
 void TeleopTwistJoyNode::joyCallback(const sensor_msgs::msg::Joy::SharedPtr joy_msg)
 {
+  // Calculate the frequency of the callback function
+  static auto last_time = this->now();
+  auto current_time = this->now();
+  dt_ = (current_time - last_time).seconds();
+  last_time = current_time;
+
   if (
     enable_turbo_button_ >= 0 && static_cast<int>(joy_msg->buttons.size()) > enable_turbo_button_ &&
     joy_msg->buttons[enable_turbo_button_]) {
@@ -194,14 +211,16 @@ void TeleopTwistJoyNode::fillCmdVelMsg(
   geometry_msgs::msg::Twist * cmd_vel_msg)
 {
   double lin_x = getVal(joy_msg, axis_chassis_map_, scale_chassis_map_[which_map], "x");
-  double ang_z = getVal(joy_msg, axis_gimbal_map_, scale_gimbal_map_[which_map], "yaw");
+  double ang_z = getVal(joy_msg, axis_chassis_map_, scale_chassis_map_[which_map], "yaw");
 
   cmd_vel_msg->linear.x = lin_x;
   cmd_vel_msg->linear.y = getVal(joy_msg, axis_chassis_map_, scale_chassis_map_[which_map], "y");
   cmd_vel_msg->linear.z = getVal(joy_msg, axis_chassis_map_, scale_chassis_map_[which_map], "z");
   cmd_vel_msg->angular.z = (lin_x < 0.0 && inverted_reverse_) ? -ang_z : ang_z;
-  cmd_vel_msg->angular.y = getVal(joy_msg, axis_gimbal_map_, scale_gimbal_map_[which_map], "pitch");
-  cmd_vel_msg->angular.x = getVal(joy_msg, axis_gimbal_map_, scale_gimbal_map_[which_map], "roll");
+  cmd_vel_msg->angular.y =
+    getVal(joy_msg, axis_chassis_map_, scale_chassis_map_[which_map], "pitch");
+  cmd_vel_msg->angular.x =
+    getVal(joy_msg, axis_chassis_map_, scale_chassis_map_[which_map], "roll");
 }
 
 void TeleopTwistJoyNode::fillJointStateMsg(
@@ -210,16 +229,11 @@ void TeleopTwistJoyNode::fillJointStateMsg(
 {
   static double pitch = 0.0;
   static double yaw = 0.0;
-  static auto last_time = this->now();
 
-  auto current_time = this->now();
-  double dt = (current_time - last_time).seconds();
-  last_time = current_time;
+  pitch += getVal(joy_msg, axis_gimbal_map_, scale_gimbal_map_[which_map], "pitch") * dt_;
+  yaw += getVal(joy_msg, axis_gimbal_map_, scale_gimbal_map_[which_map], "yaw") * dt_;
 
-  pitch += getVal(joy_msg, axis_gimbal_map_, scale_gimbal_map_[which_map], "pitch") * dt;
-  yaw += getVal(joy_msg, axis_gimbal_map_, scale_gimbal_map_[which_map], "yaw") * dt;
-
-  joint_state_msg->header.stamp = current_time;
+  joint_state_msg->header.stamp = this->now();
   joint_state_msg->name = {"gimbal_pitch_joint", "gimbal_yaw_joint"};
   joint_state_msg->position = {pitch, yaw};
 }
