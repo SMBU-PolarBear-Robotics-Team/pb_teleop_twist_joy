@@ -19,6 +19,7 @@
 #include <memory>
 #include <string>
 
+#include "example_interfaces/msg/u_int8.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
@@ -47,6 +48,9 @@ private:
   void fillJointStateMsg(
     const sensor_msgs::msg::Joy::SharedPtr joy_msg, const std::string & which_map,
     sensor_msgs::msg::JointState * joint_state_msg);
+  void fillShootMsg(
+    const sensor_msgs::msg::Joy::SharedPtr joy_msg, const std::string & which_map,
+    example_interfaces::msg::UInt8 * shoot_msg);
   void sendGoalPoseAction(
     const sensor_msgs::msg::Joy::SharedPtr joy_msg, const std::string & which_map);
   void sendZeroCommand();
@@ -58,6 +62,7 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub_;
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_stamped_pub_;
+  rclcpp::Publisher<example_interfaces::msg::UInt8>::SharedPtr shoot_pub_;
   rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr nav_to_pose_client_;
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;

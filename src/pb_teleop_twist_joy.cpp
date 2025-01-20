@@ -34,6 +34,16 @@ TeleopTwistJoyNode::TeleopTwistJoyNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<bool>("inverted_reverse", false);
   this->declare_parameter<std::string>("control_mode", "manual_control");
 
+  this->declare_parameters<int64_t>("axis_chassis", {{"x", 5L}, {"y", -1L}, {"yaw", -1L}});
+  this->declare_parameters<int64_t>(
+    "axis_gimbal", {{"yaw", 3L}, {"pitch", 4L}, {"roll", -1L}, {"shoot", 5L}});
+  this->declare_parameters<double>("scale_chassis", {{"x", 0.5}, {"y", 0.0}, {"yaw", 0.0}});
+  this->declare_parameters<double>("scale_chassis_turbo", {{"x", 1.0}, {"y", 0.0}, {"yaw", 0.0}});
+  this->declare_parameters<double>(
+    "scale_gimbal", {{"yaw", 0.5}, {"pitch", 0.0}, {"roll", 0.0}, {"shoot", 1.0}});
+  this->declare_parameters<double>(
+    "scale_gimbal_turbo", {{"yaw", 1.0}, {"pitch", 0.0}, {"roll", 0.0}, {"shoot", 1.0}});
+
   this->get_parameter("publish_stamped_twist", publish_stamped_twist_);
   this->get_parameter("robot_base_frame", robot_base_frame_);
   this->get_parameter("require_enable_button", require_enable_button_);
@@ -41,6 +51,12 @@ TeleopTwistJoyNode::TeleopTwistJoyNode(const rclcpp::NodeOptions & options)
   this->get_parameter("enable_turbo_button", enable_turbo_button_);
   this->get_parameter("inverted_reverse", inverted_reverse_);
   this->get_parameter("control_mode", control_mode_);
+  this->get_parameters("axis_chassis", axis_chassis_map_);
+  this->get_parameters("axis_gimbal", axis_gimbal_map_);
+  this->get_parameters("scale_chassis", scale_chassis_map_["normal"]);
+  this->get_parameters("scale_chassis_turbo", scale_chassis_map_["turbo"]);
+  this->get_parameters("scale_gimbal", scale_gimbal_map_["normal"]);
+  this->get_parameters("scale_gimbal_turbo", scale_gimbal_map_["turbo"]);
 
   if (control_mode_ == "auto_control") {
     nav_to_pose_client_ =
@@ -52,60 +68,10 @@ TeleopTwistJoyNode::TeleopTwistJoyNode(const rclcpp::NodeOptions & options)
   } else {
     cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
   }
-
   joint_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("cmd_gimbal_joint", 10);
-
+  shoot_pub_ = this->create_publisher<example_interfaces::msg::UInt8>("cmd_shoot", 10);
   joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
     "joy", 10, std::bind(&TeleopTwistJoyNode::joyCallback, this, std::placeholders::_1));
-
-  // Initialize axis and scale maps
-  std::map<std::string, int64_t> default_chassis_map{
-    {"x", 5L},
-    {"y", -1L},
-    {"yaw", -1L},
-  };
-  this->declare_parameters("axis_chassis", default_chassis_map);
-  this->get_parameters("axis_chassis", axis_chassis_map_);
-
-  std::map<std::string, int64_t> default_gimbal_map{
-    {"yaw", 2L},
-    {"pitch", -1L},
-    {"roll", -1L},
-  };
-  this->declare_parameters("axis_gimbal", default_gimbal_map);
-  this->get_parameters("axis_gimbal", axis_gimbal_map_);
-
-  std::map<std::string, double> default_scale_chassis_normal_map{
-    {"x", 0.5},
-    {"y", 0.0},
-    {"yaw", 0.0},
-  };
-  this->declare_parameters("scale_chassis", default_scale_chassis_normal_map);
-  this->get_parameters("scale_chassis", scale_chassis_map_["normal"]);
-
-  std::map<std::string, double> default_scale_chassis_turbo_map{
-    {"x", 1.0},
-    {"y", 0.0},
-    {"yaw", 0.0},
-  };
-  this->declare_parameters("scale_chassis_turbo", default_scale_chassis_turbo_map);
-  this->get_parameters("scale_chassis_turbo", scale_chassis_map_["turbo"]);
-
-  std::map<std::string, double> default_scale_gimbal_normal_map{
-    {"yaw", 0.5},
-    {"pitch", 0.0},
-    {"roll", 0.0},
-  };
-  this->declare_parameters("scale_gimbal", default_scale_gimbal_normal_map);
-  this->get_parameters("scale_gimbal", scale_gimbal_map_["normal"]);
-
-  std::map<std::string, double> default_scale_gimbal_turbo_map{
-    {"yaw", 1.0},
-    {"pitch", 0.0},
-    {"roll", 0.0},
-  };
-  this->declare_parameters("scale_gimbal_turbo", default_scale_gimbal_turbo_map);
-  this->get_parameters("scale_gimbal_turbo", scale_gimbal_map_["turbo"]);
 
   RCLCPP_INFO(this->get_logger(), "Teleop enable button %" PRId64 ".", enable_button_);
   RCLCPP_INFO(this->get_logger(), "Turbo on button %" PRId64 ".", enable_turbo_button_);
@@ -156,6 +122,14 @@ double TeleopTwistJoyNode::getVal(
   return joy_msg->axes[axis_it->second] * scale_it->second;
 }
 
+void TeleopTwistJoyNode::fillShootMsg(
+  const sensor_msgs::msg::Joy::SharedPtr joy_msg, const std::string & which_map,
+  example_interfaces::msg::UInt8 * shoot_msg)
+{
+  shoot_msg->data = getVal(joy_msg, axis_gimbal_map_, scale_gimbal_map_[which_map], "shoot");
+  shoot_pub_->publish(*shoot_msg);
+}
+
 void TeleopTwistJoyNode::joyCallback(const sensor_msgs::msg::Joy::SharedPtr joy_msg)
 {
   // Calculate the frequency of the callback function
@@ -180,6 +154,7 @@ void TeleopTwistJoyNode::joyCallback(const sensor_msgs::msg::Joy::SharedPtr joy_
       sent_disable_msg_ = false;
     }
   }
+  fillShootMsg(joy_msg, "normal", new example_interfaces::msg::UInt8());
 }
 
 void TeleopTwistJoyNode::sendCmdVelMsg(
