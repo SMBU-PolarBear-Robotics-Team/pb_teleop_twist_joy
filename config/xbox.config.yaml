@@ -1,4 +1,4 @@
-pb_teleop_twist_joy_node:
+pb_teleop_twist_joy:
   ros__parameters:
     use_sim_time: false
     robot_base_frame: gimbal_yaw
@@ -25,11 +25,14 @@ pb_teleop_twist_joy_node:
       roll: -1                    # Disable
       pitch: 4                    # Right thumb stick vertical
       yaw: 3                      # Right thumb stick horizontal
+      shoot: 7
     scale_gimbal:
       roll: 0.0
-      pitch: -0.5
-      yaw: 2.0
+      pitch: -1.0
+      yaw: 2.5
+      shoot: 1.0
     scale_gimbal_turbo:
       roll: 0.0
-      pitch: -1.0
-      yaw: 3.0
+      pitch: -1.5
+      yaw: 3.5
+      shoot: 1.0

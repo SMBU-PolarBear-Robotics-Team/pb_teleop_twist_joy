@@ -72,7 +72,7 @@ def generate_launch_description():
     teleop_twist_joy_node = Node(
         package="pb_teleop_twist_joy",
         executable="pb_teleop_twist_joy_node",
-        name="pb_teleop_twist_joy_node",
+        name="pb_teleop_twist_joy",
         parameters=[
             config_filepath,
             {"publish_stamped_twist": publish_stamped_twist},
