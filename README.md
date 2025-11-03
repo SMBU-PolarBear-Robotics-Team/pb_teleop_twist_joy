@@ -1,7 +1,7 @@
 # pb_teleop_twist_joy
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Build and Test](https://github.com/SMBU-PolarBear-Robotics-Team/pb_teleop_twist_joy/actions/workflows/ci.yml/badge.svg)](https://github.com/SMBU-PolarBear-Robotics-Team/pb_teleop_twist_joy/actions/workflows/ci.yml/badge.svg)
+[![Build and Test](https://github.com/SMBU-PolarBear-Robotics-Team/pb_teleop_twist_joy/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/SMBU-PolarBear-Robotics-Team/pb_teleop_twist_joy/actions/workflows/build_and_test.yml/badge.svg)
 
 > [!NOTE]
 > This code is currently quite messy, and it is not recommended to develop it again based on this code. The README update is not timely.
