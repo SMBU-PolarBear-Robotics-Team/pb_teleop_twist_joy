@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>pb_teleop_twist_joy</name>
-  <version>1.0.1</version>
+  <version>1.0.2</version>
   <description>Generic joystick teleop for robots with chassis and gimbal.</description>
   <maintainer email="lihanchen2004@163.com">Lihan Chen</maintainer>
   <license>Apache-2.0</license>
